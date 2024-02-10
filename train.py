@@ -4,12 +4,11 @@ import torch.nn as nn
 import numpy as np
 
 
-def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=1e-3):
+def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=1e-3, criterion=nn.CrossEntropyLoss()):
     """
     return: потери +, лучшая модель +, предсказанные оценки для валидационного набора
     """
     assert device is not None, "device must be cpu or cuda"
-    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(cnn_model.parameters(), lr)
     loss_history = []  # потери
     model = cnn_model.to(device)

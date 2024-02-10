@@ -1,26 +1,24 @@
+import torch
 import torch.nn as nn
 
 
-class CNN(nn.Module):
+class Perceptron(nn.Module):
     def __init__(self, input_size, num_classes):
-        super(CNN, self).__init__()
-        self.model = nn.Sequential(
-
-        )
+        super(Perceptron, self).__init__()
 
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(input_size * 3, input_size),
+            nn.Linear(input_size, 1024),  # [3000, 512]
             nn.Tanh(),
-            nn.Linear(input_size, input_size // 5),
+            nn.Linear(512, 1024),  # [512, 1024]
             nn.Sigmoid(),
-            nn.Linear(input_size // 5, input_size // 10),
-            nn.Tanh(),
-            nn.Linear(input_size // 10, num_classes),
+            nn.Linear(1024, 128),  # [1024, 128]
+            nn.Sigmoid(),
+            nn.Linear(128, num_classes),  # [128, 8]
             nn.Softmax()
         )
 
     def forward(self, x):
-
         x = self.fc(x)
         return x
+
