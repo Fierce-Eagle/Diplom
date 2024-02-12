@@ -51,6 +51,8 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
             best_acc = current_acc
             best_model = model
 
+    print("Лучшая точность:", best_acc)
+
     return loss_history, best_model
 
 
