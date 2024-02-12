@@ -2,44 +2,36 @@ import numpy as np
 import pandas as pd
 import scipy
 import my_dataset
+from matplotlib import pyplot as plt
 
 def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5000, frame_stride=2000, smoothing_window=10, spectrum_length=500):
     """
     dataframe: сигнал_1, сигнал_2, сигнал_3, сигнал_1 - сигнал_2, сигнал_1 - сигнал_3, сигнал_2 - сигнал_3
     smoothing_window: уменьшается спектр на значение размера окна - 1
     """
-    temp_ch_1 = []
-    temp_ch_2 = []
-    temp_ch_3 = []
     new_dataset = pd.DataFrame()
-    diff_frame_stride = frame_size - frame_stride
-    length = len(channel_1)
+    length = len(channel_1) - frame_size - frame_stride
     i = 0
     while i < length:
-        temp_ch_1.append(channel_1[i])
-        temp_ch_2.append(channel_2[i])
-        temp_ch_3.append(channel_3[i])
+        temp_ch_1 = channel_1[i:i+frame_size]
+        temp_ch_2 = channel_2[i:i+frame_size]
+        temp_ch_3 = channel_3[i:i+frame_size]
 
-        if len(temp_ch_1) == frame_size:  # работа с фреймом
-            # построение спектров по каналам
-            spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3 = create_smoothed_spectrum(temp_ch_1, temp_ch_2, temp_ch_3, smoothing_window, spectrum_length)
+        # построение спектров по каналам
+        spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3 = create_smoothed_spectrum(temp_ch_1, temp_ch_2, temp_ch_3, smoothing_window, spectrum_length)
 
-            # построение фрейма
-            frame = np.concatenate([spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3])
-            new_dataset = pd.concat([new_dataset, pd.DataFrame({"data": [frame], "label": [label]})],
-                                     ignore_index=True)
+        # построение фрейма
+        frame = np.concatenate([spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3])
+        new_dataset = pd.concat([new_dataset, pd.DataFrame({"data": [frame], "label": [label]})], ignore_index=True)
 
-            temp_ch_1 = []
-            temp_ch_2 = []
-            temp_ch_3 = []
-            i -= diff_frame_stride  # сдвиг обратно до stride
-        # окончание работы с фреймом
-        i += 1
+        i += frame_stride
 
     return new_dataset
 
 def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length):
     magnitude_length = spectrum_length + smoothing_window - 1
+
+    # plt.figure(figsize=(10, 6))
 
     fft_res_1 = np.fft.fft(ch_1)
     fft_res_2 = np.fft.fft(ch_2)
@@ -61,9 +53,9 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     # print(len(smoothed_spectrum_1))
     # print(len(smoothed_spectrum_2))
     # print(len(smoothed_spectrum_3))
-    diff_1 = abs(smoothed_spectrum_1 - smoothed_spectrum_2)
-    diff_2 = abs(smoothed_spectrum_1 - smoothed_spectrum_3)
-    diff_3 = abs(smoothed_spectrum_2 - smoothed_spectrum_3)
+    diff_1 = smoothed_spectrum_1 - smoothed_spectrum_2
+    diff_2 = smoothed_spectrum_1 - smoothed_spectrum_3
+    diff_3 = smoothed_spectrum_2 - smoothed_spectrum_3
     # print(smoothed_spectrum_1[:10])
     # print(smoothed_spectrum_2[:10])
     # print(diff_1[:10])
@@ -71,6 +63,15 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     # print(len(diff_2))
     # print(len(diff_3))
 
+    # plt.plot(diff_1)
+    # plt.plot(diff_2)
+    # plt.plot(diff_3)
+    # plt.title('Сглаженные спектры сигналов из нескольких колонок (скользящее среднее)')
+    # plt.xlabel('Частота (Гц)')
+    # plt.ylabel('Амплитуда')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.show()
 
     return smoothed_spectrum_1, smoothed_spectrum_2, smoothed_spectrum_3, diff_1, diff_2, diff_3
 

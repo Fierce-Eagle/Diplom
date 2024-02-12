@@ -1,4 +1,5 @@
 import torch
+from sklearn import preprocessing
 from torch.utils.data import Dataset
 
 class CustomDataset(Dataset):
@@ -18,6 +19,8 @@ class CustomDataset(Dataset):
         return len(self.data_frame["data"])
 
     def __getitem__(self, idx):
+
         data = self.data_frame["data"][idx]
+        data = preprocessing.normalize([data])  # нормализация
         label = self.data_frame["label"][idx]
         return torch.Tensor([data]), torch.Tensor([label])

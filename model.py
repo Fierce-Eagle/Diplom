@@ -8,13 +8,13 @@ class Perceptron(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(input_size, 1024),  # [3000, 512]
-            nn.Tanh(),
-            nn.Linear(512, 1024),  # [512, 1024]
-            nn.Sigmoid(),
-            nn.Linear(1024, 128),  # [1024, 128]
-            nn.Sigmoid(),
-            nn.Linear(128, num_classes),  # [128, 8]
+            nn.Linear(input_size, 512),  # [3000, 512]
+            nn.ReLU(),
+            nn.Linear(512, 256),  # [512, 1024]
+            nn.ReLU(),
+            nn.Linear(256, 64),  # [1024, 128]
+            nn.ReLU(),
+            nn.Linear(64, num_classes),  # [128, 8]
             nn.Softmax()
         )
 

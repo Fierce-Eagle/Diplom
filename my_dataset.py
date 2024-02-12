@@ -94,7 +94,7 @@ def train_val_test_split(dataset):
     :return:
     """
     labels = dataset['label']
-    x_train, x_temp = train_test_split(dataset, test_size=0.2, stratify=labels, random_state=42)
+    x_train, x_temp = train_test_split(dataset, test_size=0.1, stratify=labels, random_state=42)
 
     label_val_test = x_temp['label']
     x_valid, x_test = train_test_split(x_temp, test_size=0.5, stratify=label_val_test, random_state=42)
