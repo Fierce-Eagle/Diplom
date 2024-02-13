@@ -31,12 +31,12 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
 def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length):
     magnitude_length = spectrum_length + smoothing_window - 1
 
-    # plt.figure(figsize=(10, 6))
+    #plt.figure(figsize=(10, 6))
 
     fft_res_1 = np.fft.fft(ch_1)
     fft_res_2 = np.fft.fft(ch_2)
     fft_res_3 = np.fft.fft(ch_3)
-    # print(len(fft_res_1))
+    #print(len(fft_res_1))
 
     magnitude_spectrum_1 = np.abs(fft_res_1)[:magnitude_length]
     magnitude_spectrum_2 = np.abs(fft_res_2)[:magnitude_length]
@@ -63,15 +63,15 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     # print(len(diff_2))
     # print(len(diff_3))
 
-    # plt.plot(diff_1)
-    # plt.plot(diff_2)
-    # plt.plot(diff_3)
+    #plt.plot(magnitude_spectrum_1)
+    #plt.plot(magnitude_spectrum_2)
+    #plt.plot(magnitude_spectrum_3)
     # plt.title('Сглаженные спектры сигналов из нескольких колонок (скользящее среднее)')
     # plt.xlabel('Частота (Гц)')
     # plt.ylabel('Амплитуда')
     # plt.legend()
     # plt.grid(True)
-    # plt.show()
+    #plt.show()
 
     return smoothed_spectrum_1, smoothed_spectrum_2, smoothed_spectrum_3, diff_1, diff_2, diff_3
 

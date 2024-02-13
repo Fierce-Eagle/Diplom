@@ -15,10 +15,9 @@ class Perceptron(nn.Module):
             nn.Linear(256, 64),  # [1024, 128]
             nn.ReLU(),
             nn.Linear(64, num_classes),  # [128, 8]
-            nn.Softmax()
         )
 
     def forward(self, x):
         x = self.fc(x)
-        return x
+        return nn.functional.log_softmax(x, dim=1)
 
