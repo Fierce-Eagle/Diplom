@@ -85,3 +85,4 @@ def data_to_tensor_dataset(x, y):
     y_tensor = torch.tensor(y.values, dtype=torch.int64)  # Предполагая, что y_train_np содержит метки классов
     dataset = TensorDataset(x_tensor, y_tensor)
     return dataset
+

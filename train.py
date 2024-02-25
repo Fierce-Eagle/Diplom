@@ -121,3 +121,4 @@ def train_regression(loader_train, loader_val, cnn_model, epochs=10, device=None
     print("Лучшая точность:", best_acc)
 
     return loss_history, best_model
+

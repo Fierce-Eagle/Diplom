@@ -8,6 +8,7 @@ def load_info_from_file(filename, is_show_info=False):
     @param is_show_info:
     @return:
     """
+
     channel_1 = []
     channel_2 = []
     channel_3 = []

@@ -31,6 +31,7 @@ def create_dataset(dir_name=None, signal_start_frame_size_to_read=5000, signal_f
     @param show_info: отображение информации.
     @return:
     """
+
     # Проходим по папкам-классам
     final_dataset = pd.DataFrame()
     for num_class, folder_name in enumerate(os.listdir(dir_name)):
