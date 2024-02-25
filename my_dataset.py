@@ -1,102 +1,106 @@
 from sklearn.model_selection import train_test_split
-from statistics import variance
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from dataset_processing import *
+from signal_processing import *
+from matplotlib import pyplot as plt
+from custom_dataset import CustomDataset
+from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
+import numpy as np
+import torch
+import os
 
 
-def load_data(filename):
+def create_dataset(dir_name=None, signal_start_frame_size_to_read=5000, signal_frame_size_to_read=200,
+                   time_for_frame=2, frame_stride_percent=0.25,
+                   smoothing_window_size=10, spectrum_length=500, train_size=0.6, batch_size=32,
+                   is_regression_dataset=False, show_info=False):
     """
-    Загрузка данных с отсечением начала и конца динамически
-    @param filename:
+    Создание датасета
+    @param dir_name: корневая папка
+    @param signal_start_frame_size_to_read: размер начального кадра с выбросами при считывании сигнала из файла.
+    @param signal_frame_size_to_read: размер кадра который будет сравниваться с эталоном выбросов при считывании сигнала
+    из файла.
+    @param time_for_frame: время в секундах для создания фрейма.
+    @param frame_stride_percent: размер отступа от размера фрейма от 0 до 1.
+    @param smoothing_window_size: размер окна сглаживания спектра.
+    @param spectrum_length: длина спектра. ПРИМЕЧАНИЕ: фрейм состоит из 6 спектров.
+    @param train_size: размер тренировочной выборки от 0 до 1.
+    @param batch_size: размер батча.
+    @param is_regression_dataset: влияет на метку во фрейме. Использовать значение True при решении задачи регрессии.
+    @param show_info: отображение информации.
     @return:
     """
-    channel_1 = []
-    channel_2 = []
-    channel_3 = []
-    ch_1_lst = []
-    ch_2_lst = []
-    ch_3_lst = []
-    frame_size = 2000
+    # Проходим по папкам-классам
+    final_dataset = pd.DataFrame()
+    for num_class, folder_name in enumerate(os.listdir(dir_name)):
+        if is_regression_dataset:
+            label = int(folder_name)
+        else:
+            label = num_class
 
-    # 1) отсечь начало
-    # 2) оперделить размер фрейма
-    is_end_file = False
-    with open(filename) as file:
-        for _ in range(21):  # скип ненужных строк
-            next(file)
+        folder_path = os.path.join(dir_name, folder_name) + '/'
+        # Проходим по файлам с данными
+        for file_name in os.listdir(folder_path):
+            filename = os.path.join(folder_path, file_name)
+            print(filename)
+            # считывание сигналов
+            signal_1, signal_2, signal_3, freqence = load_info_from_file(filename, show_info)
 
-        for _ in range(5000):  # определение минимальной дисперсии
-            line = next(file)
-            channel_params = line.split()
-            ch_1_lst.append(float(channel_params[1]))
-            ch_2_lst.append(float(channel_params[2]))
-            ch_3_lst.append(float(channel_params[3]))
+            # обработка сигналов
+            signal_1, signal_2, signal_3 = cut_empty_frames_in_signals(signal_1, signal_2, signal_3)
 
-        min_variance_ch_1 = variance(ch_1_lst) * 1.1
-        min_variance_ch_2 = variance(ch_2_lst) * 1.1
-        min_variance_ch_3 = variance(ch_3_lst) * 1.1
+            frame_size = int(time_for_frame * freqence)
+            frame_stride = int(frame_stride_percent * frame_size)
+            # создание спектров
+            dataset_path = split_data_to_dataframe(signal_1, signal_2, signal_3, label,
+                                                                      frame_size,
+                                                                      frame_stride,
+                                                                      smoothing_window_size,
+                                                                      spectrum_length)
 
-        while not is_end_file:
-            # 3) выделить фрейм
-            ch_1_lst = []
-            ch_2_lst = []
-            ch_3_lst = []
-            for _ in range(frame_size):
-                line = next(file, 100)
-                if line == 100:
-                    is_end_file = True
-                    break
-                channel_params = line.split()  # получение значений для каналов
-                ch_1_lst.append(float(channel_params[1]))
-                ch_2_lst.append(float(channel_params[2]))
-                ch_3_lst.append(float(channel_params[3]))
+            final_dataset = pd.concat([final_dataset, dataset_path], ignore_index=True)
 
-            if len(ch_1_lst) < 2:
-                break
-            # 4) посчитать дисперсию
-            current_variance_ch_1 = variance(ch_1_lst)
-            current_variance_ch_2 = variance(ch_2_lst)
-            current_variance_ch_3 = variance(ch_3_lst)
+    final_data = data_to_dataset(final_dataset)
+    # Выделение данных
+    x_train, x_valid, x_test, y_train, y_valid, y_test = train_val_test_split(final_data, train_size=train_size)
 
-            # 5) сравнить с минимальной
-            # 5.1) если размер дисперсии меньше минимальной, то вернуться на п.3
-            if not is_low_variance(current_variance_ch_1, min_variance_ch_1, current_variance_ch_2, min_variance_ch_2,
-                                   current_variance_ch_3, min_variance_ch_3):
-                continue
+    # Нормализация
+    scaler = StandardScaler()
+    x_train_norm = scaler.fit_transform(x_train)
+    x_valid_norm = scaler.transform(x_valid)
+    x_test_norm = scaler.transform(x_test)
 
-            # 6) добавить фрейм к итоговому списку
-            channel_1 += ch_1_lst
-            channel_2 += ch_2_lst
-            channel_3 += ch_3_lst
-            # 7) повторять п.3-7 до конца файла
+    # Преобразование в тензоры
+    train_dataset = data_to_tensor_dataset(x_train_norm, y_train)
+    valid_dataset = data_to_tensor_dataset(x_valid_norm, y_valid)
+    test_dataset = data_to_tensor_dataset(x_test_norm, y_test)
 
-    return channel_1, channel_2, channel_3
+    train_dataset = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    valid_dataset = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
+    test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return train_dataset, valid_dataset, test_dataset
 
 
-def is_low_variance(cur_ch_1, prev_ch_1, cur_ch_2, prev_ch_2, cur_ch_3, prev_ch_3):
-    count = 0
-    if cur_ch_1 < prev_ch_1:
-        count += 1
-    if cur_ch_2 < prev_ch_2:
-        count += 1
-    if cur_ch_3 < prev_ch_3:
-        count += 1
-
-    if count >= 2:
-        return False
-    else:
-        return True
 
 
-def train_val_test_split(dataset):
+
+def train_val_test_split(dataset, train_size=0.6):
     """
     Разделение на 3 выборки (обязательно на 3)
-    :param dataset:
-    :return:
+    @param dataset: датасет вида pd.DataFrame({"data от 0 до n": [data(0-n)], "label": [label]})
+    @param train_size: размер тренировочной выборки от 0 до 1
+    @return:
     """
+    data = dataset.drop('label', axis=1)
     labels = dataset['label']
-    x_train, x_temp = train_test_split(dataset, test_size=0.4, stratify=labels, random_state=42)
+    x_train, x_temp, y_train, y_temp = train_test_split(data, labels, test_size=(1 - train_size), random_state=42)
 
-    label_val_test = x_temp['label']
-    x_valid, x_test = train_test_split(x_temp, test_size=0.5, stratify=label_val_test, random_state=42)
+    x_valid, x_test, y_valid, y_test = train_test_split(x_temp, y_temp, test_size=0.5, random_state=42)
 
-    return x_train, x_valid, x_test
+    return x_train, x_valid, x_test, y_train, y_valid, y_test
+
+
+
+

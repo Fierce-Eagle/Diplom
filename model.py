@@ -21,3 +21,12 @@ class Perceptron(nn.Module):
         x = self.fc(x)
         return nn.functional.log_softmax(x, dim=1)
 
+
+class Regression(nn.Module):
+    def __init__(self, input_size, output_size):
+        super(Regression, self).__init__()
+        self.layer = torch.nn.Linear(input_size, output_size, bias=True)
+
+    def forward(self, x):
+        x = self.layer(x)
+        return x
