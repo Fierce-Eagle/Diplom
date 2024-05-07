@@ -3,18 +3,22 @@ import torch.nn as nn
 
 
 class Perceptron(nn.Module):
-    def __init__(self, input_size, num_classes):
+    def __init__(self, input_size, num_classes=2):
         super(Perceptron, self).__init__()
 
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(input_size, 512),  # [3000, 512]
+            nn.Linear(input_size, 600), # 1200
             nn.ReLU(),
-            nn.Linear(512, 256),  # [512, 1024]
+            nn.Linear(600, 300),
             nn.ReLU(),
-            nn.Linear(256, 64),  # [1024, 128]
+            nn.Linear(300, 150),
             nn.ReLU(),
-            nn.Linear(64, num_classes),  # [128, 8]
+            nn.Linear(150, 75),
+            nn.ReLU(),
+            nn.Linear(75, 30),
+            nn.ReLU(),
+            nn.Linear(30, num_classes)
         )
 
     def forward(self, x):
@@ -23,11 +27,11 @@ class Perceptron(nn.Module):
 
 
 class Regression(nn.Module):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size):
         super(Regression, self).__init__()
-        self.layer = torch.nn.Linear(input_size, output_size, bias=True)
+        self.layer = torch.nn.Linear(input_size, 1, bias=True)
 
     def forward(self, x):
-        x = self.layer(x)
-        return x
+        y_pred = self.layer(x)
+        return y_pred
 

@@ -1,26 +1,18 @@
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from dataset_processing import *
 from signal_processing import *
 from matplotlib import pyplot as plt
-from custom_dataset import CustomDataset
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 import pandas as pd
-import numpy as np
-import torch
 import os
 
-
-def create_dataset(dir_name=None, signal_start_frame_size_to_read=5000, signal_frame_size_to_read=200,
-                   time_for_frame=2, frame_stride_percent=0.25,
+def create_dataset(dir_name=None, time_for_frame=2, frame_stride_percent=0.25,
                    smoothing_window_size=10, spectrum_length=500, train_size=0.6, batch_size=32,
                    is_regression_dataset=False, show_info=False):
     """
     Создание датасета
     @param dir_name: корневая папка
-    @param signal_start_frame_size_to_read: размер начального кадра с выбросами при считывании сигнала из файла.
-    @param signal_frame_size_to_read: размер кадра который будет сравниваться с эталоном выбросов при считывании сигнала
-    из файла.
     @param time_for_frame: время в секундах для создания фрейма.
     @param frame_stride_percent: размер отступа от размера фрейма от 0 до 1.
     @param smoothing_window_size: размер окна сглаживания спектра.
@@ -34,6 +26,7 @@ def create_dataset(dir_name=None, signal_start_frame_size_to_read=5000, signal_f
 
     # Проходим по папкам-классам
     final_dataset = pd.DataFrame()
+    show_spectrs = True
     for num_class, folder_name in enumerate(os.listdir(dir_name)):
         if is_regression_dataset:
             label = int(folder_name)
@@ -44,47 +37,83 @@ def create_dataset(dir_name=None, signal_start_frame_size_to_read=5000, signal_f
         # Проходим по файлам с данными
         for file_name in os.listdir(folder_path):
             filename = os.path.join(folder_path, file_name)
-            print(filename)
+            # if show_info:
+            #    print(filename)
             # считывание сигналов
-            signal_1, signal_2, signal_3, freqence = load_info_from_file(filename, show_info)
+            signal_1, signal_2, signal_3, frequency = load_info_from_file(filename)
+
+            """
+            if show_info:
+                print("Частота:", frequency)
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_1, label="сигнал 1", color='red')
+                plt.legend()
+                plt.show()
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_2, label="сигнал 2", color='green')
+                plt.legend()
+                plt.show()
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_3, label="сигнал 3", color='blue')
+                plt.legend()
+                plt.show()
+            """
 
             # обработка сигналов
-            signal_1, signal_2, signal_3 = cut_empty_frames_in_signals(signal_1, signal_2, signal_3)
+            signal_1, signal_2, signal_3 = cut_empty_frames_in_signals(signal_1, signal_2, signal_3, frequency)
 
-            frame_size = int(time_for_frame * freqence)
+            """
+            if show_info:
+                print("Обрезанные сигналы:")
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_1, label="сигнал 1", color='red')
+                plt.legend()
+                plt.show()
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_2, label="сигнал 2", color='green')
+                plt.legend()
+                plt.show()
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_3, label="сигнал 3", color='blue')
+                plt.legend()
+                plt.show()
+            """
+
+            frame_size = int(time_for_frame * frequency)
             frame_stride = int(frame_stride_percent * frame_size)
             # создание спектров
             dataset_path = split_data_to_dataframe(signal_1, signal_2, signal_3, label,
-                                                                      frame_size,
-                                                                      frame_stride,
-                                                                      smoothing_window_size,
-                                                                      spectrum_length)
+                                                   frame_size,
+                                                   frame_stride,
+                                                   smoothing_window_size,
+                                                   spectrum_length, show_spectrs)
+            show_spectrs = False
 
             final_dataset = pd.concat([final_dataset, dataset_path], ignore_index=True)
 
     final_data = data_to_dataset(final_dataset)
+
+    data = final_data.drop('label', axis=1)
+    labels = final_data['label']
+
     # Выделение данных
-    x_train, x_valid, x_test, y_train, y_valid, y_test = train_val_test_split(final_data, train_size=train_size)
+    x_train, x_test, y_train, y_test = train_test_split(data, labels,
+                                                        test_size=(1 - train_size), random_state=42)
 
     # Нормализация
-    scaler = StandardScaler()
-    x_train_norm = scaler.fit_transform(x_train)
-    x_valid_norm = scaler.transform(x_valid)
+    scaler = StandardScaler().fit(x_train)
+    x_train_norm = scaler.transform(x_train)
     x_test_norm = scaler.transform(x_test)
 
     # Преобразование в тензоры
     train_dataset = data_to_tensor_dataset(x_train_norm, y_train)
-    valid_dataset = data_to_tensor_dataset(x_valid_norm, y_valid)
     test_dataset = data_to_tensor_dataset(x_test_norm, y_test)
 
-    train_dataset = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    valid_dataset = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
-    test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    if not is_regression_dataset:
+        train_dataset = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_dataset, valid_dataset, test_dataset
-
-
-
+    return train_dataset, test_dataset, scaler
 
 
 def train_val_test_split(dataset, train_size=0.6):
@@ -103,5 +132,36 @@ def train_val_test_split(dataset, train_size=0.6):
     return x_train, x_valid, x_test, y_train, y_valid, y_test
 
 
+def create_test_dataset(folder_path=None, time_for_frame=2, frame_stride_percent=0.25, smoothing_window_size=10,
+                        spectrum_length=500, batch_size=64, scaler=None):
+    final_dataset = pd.DataFrame()
+    for file_name in os.listdir(folder_path):
+        filename = os.path.join(folder_path, file_name)
 
+        # считывание сигналов
+        signal_1, signal_2, signal_3, frequency = load_info_from_file(filename)
+        # обработка сигналов
+        signal_1, signal_2, signal_3 = cut_empty_frames_in_signals(signal_1, signal_2, signal_3, frequency)
+        frame_size = int(time_for_frame * frequency)
+        frame_stride = int(frame_stride_percent * frame_size)
+        # создание спектров
+        dataset_path = split_data_to_dataframe(signal_1, signal_2, signal_3, label=1,
+                                               frame_size=frame_size,
+                                               frame_stride=frame_stride,
+                                               spectrum_length=spectrum_length,
+                                               smoothing_window=smoothing_window_size)
 
+        final_dataset = pd.concat([final_dataset, dataset_path], ignore_index=True)
+
+    final_data = data_to_dataset(final_dataset)
+    x_test = final_data.drop('label', axis=1)
+    y_test = final_data['label']
+    # print(x_test)
+    # Нормализация
+    x_test_norm = scaler.transform(x_test)
+
+    # Преобразование в тензоры
+    test_dataset = data_to_tensor_dataset(x_test_norm, y_test)
+    test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return test_dataset

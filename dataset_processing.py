@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
+from matplotlib import pyplot as plt
 
 
 def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5000, frame_stride=2000,
-                            smoothing_window=10, spectrum_length=500):
+                            smoothing_window=10, spectrum_length=500, show_spectrs=False):
     """
     создание спектров из сигналов
     dataframe: сигнал_1, сигнал_2, сигнал_3, сигнал_1 - сигнал_2, сигнал_1 - сигнал_3, сигнал_2 - сигнал_3
@@ -23,28 +24,25 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
         spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3 = create_smoothed_spectrum(temp_ch_1, temp_ch_2,
                                                                                               temp_ch_3,
                                                                                               smoothing_window,
-                                                                                              spectrum_length)
-
+                                                                                              spectrum_length, show_spectrs)
+        show_spectrs = False
         # построение фрейма
         frame = np.concatenate([spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3])
 
         new_dataset = pd.concat([new_dataset, pd.DataFrame({"data": [frame], "label": [label]})], ignore_index=True)
 
-        i += frame_stride
+        i = i + frame_size - frame_stride
 
     return new_dataset
 
 
-def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length):
+def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length, Flag=False):
     magnitude_length = spectrum_length + smoothing_window - 1
 
     fft_res_1 = np.fft.fft(ch_1)
     fft_res_2 = np.fft.fft(ch_2)
     fft_res_3 = np.fft.fft(ch_3)
-    print(len(fft_res_1))
-    print(len(fft_res_2))
-    print(len(fft_res_3))
-    print()
+
     magnitude_spectrum_1 = np.abs(fft_res_1)[:magnitude_length]
     magnitude_spectrum_2 = np.abs(fft_res_2)[:magnitude_length]
     magnitude_spectrum_3 = np.abs(fft_res_3)[:magnitude_length]
@@ -59,6 +57,23 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     diff_1 = smoothed_spectrum_1 - smoothed_spectrum_2
     diff_2 = smoothed_spectrum_1 - smoothed_spectrum_3
     diff_3 = smoothed_spectrum_2 - smoothed_spectrum_3
+
+
+    if Flag:
+        print("Обрезанные спектры:")
+        plt.figure(figsize=(15, 6))
+        plt.plot(magnitude_spectrum_1, label="спектр 1", color='red')
+        plt.legend()
+        plt.show()
+        plt.figure(figsize=(15, 6))
+        plt.plot(magnitude_spectrum_2, label="спектр 2", color='green')
+        plt.legend()
+        plt.show()
+        plt.figure(figsize=(15, 6))
+        plt.plot(magnitude_spectrum_3, label="спектр 3", color='blue')
+        plt.legend()
+        plt.show()
+
 
     return smoothed_spectrum_1, smoothed_spectrum_2, smoothed_spectrum_3, diff_1, diff_2, diff_3
 
