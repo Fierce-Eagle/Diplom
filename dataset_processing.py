@@ -2,11 +2,15 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
+from scipy import fft as fft
+import torch.nn.functional as nnf
+
 from matplotlib import pyplot as plt
+from global_params import *
 
 
-def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5000, frame_stride=2000,
-                            smoothing_window=10, spectrum_length=500, show_spectrs=False):
+def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5000, frame_stride=2000, frame_coeff=1,
+                            smoothing_window=10, spectrum_length=500):
     """
     создание спектров из сигналов
     dataframe: сигнал_1, сигнал_2, сигнал_3, сигнал_1 - сигнал_2, сигнал_1 - сигнал_3, сигнал_2 - сигнал_3
@@ -24,8 +28,8 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
         spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3 = create_smoothed_spectrum(temp_ch_1, temp_ch_2,
                                                                                               temp_ch_3,
                                                                                               smoothing_window,
-                                                                                              spectrum_length, show_spectrs)
-        show_spectrs = False
+                                                                                              spectrum_length,
+                                                                                              frame_coeff)
         # построение фрейма
         frame = np.concatenate([spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3])
 
@@ -36,16 +40,52 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
     return new_dataset
 
 
-def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length, Flag=False):
+def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length, frame_coeff):
     magnitude_length = spectrum_length + smoothing_window - 1
 
-    fft_res_1 = np.fft.fft(ch_1)
-    fft_res_2 = np.fft.fft(ch_2)
-    fft_res_3 = np.fft.fft(ch_3)
+    """
+    # взять часть сигнала
+    signal_path_size = len(ch_1) // frame_coeff
+    fft_lst_1 = []
+    fft_lst_2 = []
+    fft_lst_3 = []
 
+
+    for i in range(frame_coeff):
+        fft_lst_1.append(
+            np.abs(
+                np.fft.fft(ch_1[(i * signal_path_size):(i + 1) * signal_path_size])
+            )[:magnitude_length]
+        )
+
+        fft_lst_2.append(
+            np.abs(
+                np.fft.fft(ch_2[(i * signal_path_size):(i + 1) * signal_path_size])
+            )[:magnitude_length]
+        )
+
+        fft_lst_3.append(
+            np.abs(
+                np.fft.fft(ch_3[(i * signal_path_size):(i + 1) * signal_path_size])
+            )[:magnitude_length]
+        )
+
+    magnitude_spectrum_1 = np.mean(fft_lst_1, axis=0)
+    magnitude_spectrum_2 = np.mean(fft_lst_2, axis=0)
+    magnitude_spectrum_3 = np.mean(fft_lst_3, axis=0)
+
+    """
+    fft_res_1 = fft.fft(ch_1, axis=0)
+    fft_res_2 = fft.fft(ch_2, axis=0)
+    fft_res_3 = fft.fft(ch_3, axis=0)
+
+    #print(len(fft_res_1))
     magnitude_spectrum_1 = np.abs(fft_res_1)[:magnitude_length]
     magnitude_spectrum_2 = np.abs(fft_res_2)[:magnitude_length]
     magnitude_spectrum_3 = np.abs(fft_res_3)[:magnitude_length]
+
+
+    # сглаживать после объединения
 
     smoothed_spectrum_1 = np.convolve(magnitude_spectrum_1, np.ones(smoothing_window) / smoothing_window,
                                       mode='valid')  # сглаживание
@@ -58,8 +98,8 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     diff_2 = smoothed_spectrum_1 - smoothed_spectrum_3
     diff_3 = smoothed_spectrum_2 - smoothed_spectrum_3
 
-
-    if Flag:
+    if GlobalParams.show_spectrum == True:
+        GlobalParams.show_spectrum = False
         print("Обрезанные спектры:")
         plt.figure(figsize=(15, 6))
         plt.plot(magnitude_spectrum_1, label="спектр 1", color='red')
@@ -74,7 +114,6 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
         plt.legend()
         plt.show()
 
-
     return smoothed_spectrum_1, smoothed_spectrum_2, smoothed_spectrum_3, diff_1, diff_2, diff_3
 
 
@@ -88,9 +127,9 @@ def data_to_dataset(data):
     df_dataset = pd.concat([df_dataset, new_columns_df], axis=1)
     df_dataset.drop(columns=['data'], inplace=True)
 
-    #Преобразуем целевую переменную в int
+    # Преобразуем целевую переменную в int
     df_dataset['label'] = df_dataset['label'].astype(int)
-    #Дропаем nanы (их нет)
+    # Дропаем nanы (их нет)
     df_dataset = df_dataset.dropna()
     return df_dataset
 

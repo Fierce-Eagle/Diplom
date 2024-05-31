@@ -9,7 +9,7 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
     return: потери +, лучшая модель +, предсказанные оценки для валидационного набора
     """
     assert device is not None, "device must be cpu or cuda"
-    optimizer = optim.Adam(cnn_model.parameters(), lr)
+    optimizer = optim.Adagrad(cnn_model.parameters(), lr, weight_decay=5e-8)
     loss_history = []  # потери
     model = cnn_model.to(device)
     best_model = None  # лучшая модель
@@ -32,6 +32,7 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
         for (x, y) in loader_train:
             x = x.to(device=device, dtype=torch.float32)
             y = y.to(device=device, dtype=torch.int64)
+
             y = torch.flatten(y)
 
             for i, _ in enumerate(y):

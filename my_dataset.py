@@ -1,15 +1,16 @@
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler
 from dataset_processing import *
 from signal_processing import *
+from global_params import *
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 import pandas as pd
 import os
 
-def create_dataset(dir_name=None, time_for_frame=2, frame_stride_percent=0.25,
-                   smoothing_window_size=10, spectrum_length=500, train_size=0.6, batch_size=32,
-                   is_regression_dataset=False, show_info=False):
+def create_dataset(dir_name=None, time_for_frame=2, frame_time_coeff=4, frame_stride_percent=0.25,
+                   smoothing_window_size=10, spectrum_length=500, batch_size=32,
+                   is_regression_dataset=False):
     """
     Создание датасета
     @param dir_name: корневая папка
@@ -25,45 +26,35 @@ def create_dataset(dir_name=None, time_for_frame=2, frame_stride_percent=0.25,
     """
 
     # Проходим по папкам-классам
-    final_dataset = pd.DataFrame()
-    show_spectrs = True
+    train_dataset = pd.DataFrame()
+    valid_dataset = pd.DataFrame()
+
+    GlobalParams.show_spectrum = True  #!!!!!!!!!!!!!!!!!!!!!!!!!
+    GlobalParams.show_signal = True
     for num_class, folder_name in enumerate(os.listdir(dir_name)):
+        #if num_class > 0 and num_class < 4:
+        #    print(num_class)
+        #    continue
         if is_regression_dataset:
             label = int(folder_name)
         else:
-            label = num_class
+            if num_class == 0:
+                label = 0
+            else:
+                label = 1
 
         folder_path = os.path.join(dir_name, folder_name) + '/'
         # Проходим по файлам с данными
         for file_name in os.listdir(folder_path):
             filename = os.path.join(folder_path, file_name)
-            # if show_info:
-            #    print(filename)
-            # считывание сигналов
+            filenum = int(filename.split('о')[1].split('.')[0])
+
+            #if filenum == 10:
+            #    continue
+
             signal_1, signal_2, signal_3, frequency = load_info_from_file(filename)
 
-            """
-            if show_info:
-                print("Частота:", frequency)
-                plt.figure(figsize=(15, 6))
-                plt.plot(signal_1, label="сигнал 1", color='red')
-                plt.legend()
-                plt.show()
-                plt.figure(figsize=(15, 6))
-                plt.plot(signal_2, label="сигнал 2", color='green')
-                plt.legend()
-                plt.show()
-                plt.figure(figsize=(15, 6))
-                plt.plot(signal_3, label="сигнал 3", color='blue')
-                plt.legend()
-                plt.show()
-            """
-
-            # обработка сигналов
-            signal_1, signal_2, signal_3 = cut_empty_frames_in_signals(signal_1, signal_2, signal_3, frequency)
-
-            """
-            if show_info:
+            if GlobalParams.show_signal:
                 print("Обрезанные сигналы:")
                 plt.figure(figsize=(15, 6))
                 plt.plot(signal_1, label="сигнал 1", color='red')
@@ -77,67 +68,89 @@ def create_dataset(dir_name=None, time_for_frame=2, frame_stride_percent=0.25,
                 plt.plot(signal_3, label="сигнал 3", color='blue')
                 plt.legend()
                 plt.show()
-            """
 
-            frame_size = int(time_for_frame * frequency)
+            # обработка сигналов
+            signal_1, signal_2, signal_3 = cut_empty_frames_in_signals(signal_1, signal_2, signal_3, frequency)
+
+            if GlobalParams.show_signal:
+                GlobalParams.show_signal = False
+                print("Обрезанные сигналы:")
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_1, label="сигнал 1", color='red')
+                plt.legend()
+                plt.show()
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_2, label="сигнал 2", color='green')
+                plt.legend()
+                plt.show()
+                plt.figure(figsize=(15, 6))
+                plt.plot(signal_3, label="сигнал 3", color='blue')
+                plt.legend()
+                plt.show()
+
+            if label == 0:
+                coeff = 1
+            else:
+                coeff = frame_time_coeff
+
+            frame_size = int(time_for_frame * frequency * coeff)
             frame_stride = int(frame_stride_percent * frame_size)
             # создание спектров
             dataset_path = split_data_to_dataframe(signal_1, signal_2, signal_3, label,
                                                    frame_size,
                                                    frame_stride,
+                                                   coeff,
                                                    smoothing_window_size,
-                                                   spectrum_length, show_spectrs)
-            show_spectrs = False
+                                                   spectrum_length)
 
-            final_dataset = pd.concat([final_dataset, dataset_path], ignore_index=True)
+            if filenum <= 8:
+                train_dataset = pd.concat([train_dataset, dataset_path], ignore_index=True)
+            else:
+                valid_dataset = pd.concat([valid_dataset, dataset_path], ignore_index=True)
 
-    final_data = data_to_dataset(final_dataset)
 
-    data = final_data.drop('label', axis=1)
-    labels = final_data['label']
+    train_data = data_to_dataset(train_dataset)
+    valid_data = data_to_dataset(valid_dataset)
 
-    # Выделение данных
-    x_train, x_test, y_train, y_test = train_test_split(data, labels,
-                                                        test_size=(1 - train_size), random_state=42)
+    x_train = train_data.drop('label', axis=1)
+    y_train = train_data['label']
+
+    x_valid = valid_data.drop('label', axis=1)
+    y_valid = valid_data['label']
 
     # Нормализация
     scaler = StandardScaler().fit(x_train)
+    GlobalParams.scaler = scaler
+
     x_train_norm = scaler.transform(x_train)
-    x_test_norm = scaler.transform(x_test)
+    x_valid_norm = scaler.transform(x_valid)
 
     # Преобразование в тензоры
     train_dataset = data_to_tensor_dataset(x_train_norm, y_train)
-    test_dataset = data_to_tensor_dataset(x_test_norm, y_test)
+    valid_dataset = data_to_tensor_dataset(x_valid_norm, y_valid)
 
     if not is_regression_dataset:
         train_dataset = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        valid_dataset = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
+    else:
+        train_dataset = DataLoader(train_dataset, batch_size=1, shuffle=True)
+        valid_dataset = DataLoader(valid_dataset, batch_size=1, shuffle=False)
 
-    return train_dataset, test_dataset, scaler
-
-
-def train_val_test_split(dataset, train_size=0.6):
-    """
-    Разделение на 3 выборки (обязательно на 3)
-    @param dataset: датасет вида pd.DataFrame({"data от 0 до n": [data(0-n)], "label": [label]})
-    @param train_size: размер тренировочной выборки от 0 до 1
-    @return:
-    """
-    data = dataset.drop('label', axis=1)
-    labels = dataset['label']
-    x_train, x_temp, y_train, y_temp = train_test_split(data, labels, test_size=(1 - train_size), random_state=42)
-
-    x_valid, x_test, y_valid, y_test = train_test_split(x_temp, y_temp, test_size=0.5, random_state=42)
-
-    return x_train, x_valid, x_test, y_train, y_valid, y_test
+    return train_dataset, valid_dataset
 
 
 def create_test_dataset(folder_path=None, time_for_frame=2, frame_stride_percent=0.25, smoothing_window_size=10,
-                        spectrum_length=500, batch_size=64, scaler=None):
+                        spectrum_length=500, batch_size=4):
     final_dataset = pd.DataFrame()
+
+    GlobalParams.show_spectrum = True  # !!!!!!!!!!!!!!!!!!!!!!!!!
+
     for file_name in os.listdir(folder_path):
         filename = os.path.join(folder_path, file_name)
+        filenum = int(filename.split('о')[1].split('.')[0])
 
+        #if filenum < 10:
+        #    continue
         # считывание сигналов
         signal_1, signal_2, signal_3, frequency = load_info_from_file(filename)
         # обработка сигналов
@@ -154,12 +167,14 @@ def create_test_dataset(folder_path=None, time_for_frame=2, frame_stride_percent
         final_dataset = pd.concat([final_dataset, dataset_path], ignore_index=True)
 
     final_data = data_to_dataset(final_dataset)
+
     x_test = final_data.drop('label', axis=1)
     y_test = final_data['label']
-    # print(x_test)
-    # Нормализация
-    x_test_norm = scaler.transform(x_test)
+    print(x_test.values.shape)
 
+    # Нормализация
+    x_test_norm = GlobalParams.scaler.transform(x_test)
+    print(len(x_test_norm[0]))
     # Преобразование в тензоры
     test_dataset = data_to_tensor_dataset(x_test_norm, y_test)
     test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
