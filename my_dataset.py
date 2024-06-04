@@ -29,8 +29,8 @@ def create_dataset(dir_name=None, time_for_frame=2, frame_time_coeff=4, frame_st
     train_dataset = pd.DataFrame()
     valid_dataset = pd.DataFrame()
 
-    GlobalParams.show_spectrum = True  #!!!!!!!!!!!!!!!!!!!!!!!!!
-    GlobalParams.show_signal = True
+    GlobalParams.show_spectrum = False  #!!!!!!!!!!!!!!!!!!!!!!!!!
+    GlobalParams.show_signal = False
     for num_class, folder_name in enumerate(os.listdir(dir_name)):
         #if num_class > 0 and num_class < 4:
         #    print(num_class)
@@ -40,8 +40,10 @@ def create_dataset(dir_name=None, time_for_frame=2, frame_time_coeff=4, frame_st
         else:
             if num_class == 0:
                 label = 0
+                stride = frame_stride_percent * 1.2
             else:
                 label = 1
+                stride = frame_stride_percent
 
         folder_path = os.path.join(dir_name, folder_name) + '/'
         # Проходим по файлам с данными
@@ -94,7 +96,7 @@ def create_dataset(dir_name=None, time_for_frame=2, frame_time_coeff=4, frame_st
                 coeff = frame_time_coeff
 
             frame_size = int(time_for_frame * frequency * coeff)
-            frame_stride = int(frame_stride_percent * frame_size)
+            frame_stride = int(stride * frame_size)
             # создание спектров
             dataset_path = split_data_to_dataframe(signal_1, signal_2, signal_3, label,
                                                    frame_size,
@@ -119,7 +121,7 @@ def create_dataset(dir_name=None, time_for_frame=2, frame_time_coeff=4, frame_st
     y_valid = valid_data['label']
 
     # Нормализация
-    scaler = StandardScaler().fit(x_train)
+    scaler = MaxAbsScaler().fit(x_train)
     GlobalParams.scaler = scaler
 
     x_train_norm = scaler.transform(x_train)
@@ -143,7 +145,7 @@ def create_test_dataset(folder_path=None, time_for_frame=2, frame_stride_percent
                         spectrum_length=500, batch_size=4):
     final_dataset = pd.DataFrame()
 
-    GlobalParams.show_spectrum = True  # !!!!!!!!!!!!!!!!!!!!!!!!!
+    GlobalParams.show_spectrum = False  # !!!!!!!!!!!!!!!!!!!!!!!!!
 
     for file_name in os.listdir(folder_path):
         filename = os.path.join(folder_path, file_name)
@@ -170,11 +172,11 @@ def create_test_dataset(folder_path=None, time_for_frame=2, frame_stride_percent
 
     x_test = final_data.drop('label', axis=1)
     y_test = final_data['label']
-    print(x_test.values.shape)
+    #print(x_test.values.shape)
 
     # Нормализация
     x_test_norm = GlobalParams.scaler.transform(x_test)
-    print(len(x_test_norm[0]))
+    #print(len(x_test_norm[0]))
     # Преобразование в тензоры
     test_dataset = data_to_tensor_dataset(x_test_norm, y_test)
     test_dataset = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)

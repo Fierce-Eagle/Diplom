@@ -9,7 +9,7 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
     return: потери +, лучшая модель +, предсказанные оценки для валидационного набора
     """
     assert device is not None, "device must be cpu or cuda"
-    optimizer = optim.Adagrad(cnn_model.parameters(), lr, weight_decay=5e-8)
+    optimizer = optim.Adam(cnn_model.parameters(), lr, weight_decay=1e-4) # weight_decay - функция регуляризации
     loss_history = []  # потери
     model = cnn_model.to(device)
     best_model = None  # лучшая модель
@@ -20,9 +20,6 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
     y_true_valid = []
     for (_, labels) in loader_val:
         y_true_valid += [int(y.item()) for y in labels]
-    for i, _ in enumerate(y_true_valid):
-        if y_true_valid[i] != 0:
-            y_true_valid[i] = 1
 
     y_true_valid = torch.Tensor(y_true_valid)
 
@@ -32,16 +29,10 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
         for (x, y) in loader_train:
             x = x.to(device=device, dtype=torch.float32)
             y = y.to(device=device, dtype=torch.int64)
-
             y = torch.flatten(y)
-
-            for i, _ in enumerate(y):
-                if y[i] != 0:
-                    y[i] = 1
-
-            optimizer.zero_grad()
             predicted_y = model(x)
             loss = criterion(predicted_y, y)
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
@@ -56,7 +47,7 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
         correct = y_pred_valid.eq(y_true_valid)
         current_acc = torch.mean(correct.float())
 
-        print('Epoch [%d/%d], loss = %.4f acc_val = %.4f' % (epoch, epochs, current_loss, current_acc))
+        print('Epoch [%d/%d], loss = %.8f acc_val = %.4f' % ((epoch + 1), epochs, current_loss, current_acc))
         if current_acc >= best_acc:
             if current_loss < best_loss:
                 best_loss = current_loss

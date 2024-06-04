@@ -42,31 +42,33 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
 
 def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length, frame_coeff):
     magnitude_length = spectrum_length + smoothing_window - 1
+    if (len(ch_1) // 2) < magnitude_length:
+        magnitude_length = len(ch_1) // 2
+        print(magnitude_length)
 
-    """
     # взять часть сигнала
     signal_path_size = len(ch_1) // frame_coeff
     fft_lst_1 = []
     fft_lst_2 = []
     fft_lst_3 = []
 
-
+    """
     for i in range(frame_coeff):
         fft_lst_1.append(
             np.abs(
-                np.fft.fft(ch_1[(i * signal_path_size):(i + 1) * signal_path_size])
+                np.fft.fft(ch_1[(i * signal_path_size):(i + 1) * signal_path_size], axis=0)
             )[:magnitude_length]
         )
 
         fft_lst_2.append(
             np.abs(
-                np.fft.fft(ch_2[(i * signal_path_size):(i + 1) * signal_path_size])
+                np.fft.fft(ch_2[(i * signal_path_size):(i + 1) * signal_path_size], axis=0)
             )[:magnitude_length]
         )
 
         fft_lst_3.append(
             np.abs(
-                np.fft.fft(ch_3[(i * signal_path_size):(i + 1) * signal_path_size])
+                np.fft.fft(ch_3[(i * signal_path_size):(i + 1) * signal_path_size], axis=0)
             )[:magnitude_length]
         )
 
@@ -75,9 +77,22 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     magnitude_spectrum_3 = np.mean(fft_lst_3, axis=0)
 
     """
-    fft_res_1 = fft.fft(ch_1, axis=0)
-    fft_res_2 = fft.fft(ch_2, axis=0)
-    fft_res_3 = fft.fft(ch_3, axis=0)
+
+    lst_1 = []
+    lst_2 = []
+    lst_3 = []
+    for i in range(frame_coeff):
+        lst_1.append(ch_1[(i * signal_path_size):(i + 1) * signal_path_size])
+        lst_2.append(ch_2[(i * signal_path_size):(i + 1) * signal_path_size])
+        lst_3.append(ch_3[(i * signal_path_size):(i + 1) * signal_path_size])
+
+    mean_ch_1 = np.mean(lst_1, axis=0)
+    mean_ch_2 = np.mean(lst_2, axis=0)
+    mean_ch_3 = np.mean(lst_3, axis=0)
+
+    fft_res_1 = fft.fft(mean_ch_1)
+    fft_res_2 = fft.fft(mean_ch_2)
+    fft_res_3 = fft.fft(mean_ch_3)
 
     #print(len(fft_res_1))
     magnitude_spectrum_1 = np.abs(fft_res_1)[:magnitude_length]
@@ -118,7 +133,7 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
 
 
 def data_to_dataset(data):
-    print(data.shape)
+    #print(data.shape)
     df_dataset = data.copy()
 
     # Создайём DataFrame из списка данных
@@ -136,7 +151,7 @@ def data_to_dataset(data):
 
 def data_to_tensor_dataset(x, y):
     x_tensor = torch.tensor(x, dtype=torch.float32)
-    y_tensor = torch.tensor(y.values, dtype=torch.int64)  # Предполагая, что y_train_np содержит метки классов
+    y_tensor = torch.tensor(y, dtype=torch.int64)
     dataset = TensorDataset(x_tensor, y_tensor)
     return dataset
 
