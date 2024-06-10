@@ -3,8 +3,6 @@ import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
 from scipy import fft as fft
-import torch.nn.functional as nnf
-
 from matplotlib import pyplot as plt
 from global_params import *
 
@@ -42,41 +40,9 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
 
 def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length, frame_coeff):
     magnitude_length = spectrum_length + smoothing_window - 1
-    if (len(ch_1) // 2) < magnitude_length:
-        magnitude_length = len(ch_1) // 2
-        print(magnitude_length)
 
     # взять часть сигнала
     signal_path_size = len(ch_1) // frame_coeff
-    fft_lst_1 = []
-    fft_lst_2 = []
-    fft_lst_3 = []
-
-    """
-    for i in range(frame_coeff):
-        fft_lst_1.append(
-            np.abs(
-                np.fft.fft(ch_1[(i * signal_path_size):(i + 1) * signal_path_size], axis=0)
-            )[:magnitude_length]
-        )
-
-        fft_lst_2.append(
-            np.abs(
-                np.fft.fft(ch_2[(i * signal_path_size):(i + 1) * signal_path_size], axis=0)
-            )[:magnitude_length]
-        )
-
-        fft_lst_3.append(
-            np.abs(
-                np.fft.fft(ch_3[(i * signal_path_size):(i + 1) * signal_path_size], axis=0)
-            )[:magnitude_length]
-        )
-
-    magnitude_spectrum_1 = np.mean(fft_lst_1, axis=0)
-    magnitude_spectrum_2 = np.mean(fft_lst_2, axis=0)
-    magnitude_spectrum_3 = np.mean(fft_lst_3, axis=0)
-
-    """
 
     lst_1 = []
     lst_2 = []
@@ -94,14 +60,11 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
     fft_res_2 = fft.fft(mean_ch_2)
     fft_res_3 = fft.fft(mean_ch_3)
 
-    #print(len(fft_res_1))
     magnitude_spectrum_1 = np.abs(fft_res_1)[:magnitude_length]
     magnitude_spectrum_2 = np.abs(fft_res_2)[:magnitude_length]
     magnitude_spectrum_3 = np.abs(fft_res_3)[:magnitude_length]
 
-
     # сглаживать после объединения
-
     smoothed_spectrum_1 = np.convolve(magnitude_spectrum_1, np.ones(smoothing_window) / smoothing_window,
                                       mode='valid')  # сглаживание
     smoothed_spectrum_2 = np.convolve(magnitude_spectrum_2, np.ones(smoothing_window) / smoothing_window,
@@ -133,10 +96,9 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
 
 
 def data_to_dataset(data):
-    #print(data.shape)
     df_dataset = data.copy()
 
-    # Создайём DataFrame из списка данных
+    # Создаём DataFrame из списка данных
     new_columns_df = pd.DataFrame([x for x in data["data"]], columns=[f'data_{i}' for i in range(len(data['data'][0]))])
     # Объединяем новые столбцы с основным DataFrame
     df_dataset = pd.concat([df_dataset, new_columns_df], axis=1)
@@ -144,8 +106,7 @@ def data_to_dataset(data):
 
     # Преобразуем целевую переменную в int
     df_dataset['label'] = df_dataset['label'].astype(int)
-    # Дропаем nanы (их нет)
-    df_dataset = df_dataset.dropna()
+
     return df_dataset
 
 

@@ -9,7 +9,7 @@ def train_model(loader_train, loader_val, cnn_model, epochs=10, device=None, lr=
     return: потери +, лучшая модель +, предсказанные оценки для валидационного набора
     """
     assert device is not None, "device must be cpu or cuda"
-    optimizer = optim.Adam(cnn_model.parameters(), lr, weight_decay=1e-4) # weight_decay - функция регуляризации
+    optimizer = optim.Adam(cnn_model.parameters(), lr, weight_decay=1e-9) # weight_decay - функция регуляризации
     loss_history = []  # потери
     model = cnn_model.to(device)
     best_model = None  # лучшая модель
@@ -72,34 +72,3 @@ def test_model(model, loader_test, device=None):
             predict_list += [p.item() for p in pred]
 
     return np.array(predict_list)
-
-
-def train_regression(train_dataloader, reg_model, epochs=10, device=None, lr=1e-3,
-                     criterion=nn.MSELoss(size_average=False)):
-    """
-    return: потери +, лучшая модель +, предсказанные оценки для валидационного набора
-    """
-    assert device is not None, "device must be cpu or cuda"
-    optimizer = optim.Adam(reg_model.parameters(), lr)
-    loss_history = []  # потери
-    model = reg_model.to(device)
-
-    for epoch in range(epochs):
-        loss_sum = 0
-
-        for batch, (x, y) in enumerate(train_dataloader):
-            x = x.to(device=device, dtype=torch.float32)
-            y = y.to(device=device, dtype=torch.float32)
-            y_pred = model(x)
-            loss = criterion(y_pred, y)
-            loss_sum += loss.item()
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        current_loss = loss_sum / (batch + 1)
-        loss_history.append(current_loss)
-        print('Epoch [%d/%d], loss = %.4f' % (epoch, epochs, current_loss))
-
-    return loss_history, model
-
