@@ -15,6 +15,13 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
     smoothing_window: уменьшается спектр на значение размера окна - 1
     """
     new_dataset = pd.DataFrame()
+    signals_1 = []
+    signals_2 = []
+    signals_3 = []
+    spectr_1 = []
+    spectr_2 = []
+    spectr_3 = []
+    spectrums = []
     length = len(channel_1) - frame_size - frame_stride
     i = 0
     while i < length:
@@ -31,11 +38,26 @@ def split_data_to_dataframe(channel_1, channel_2, channel_3, label, frame_size=5
         # построение фрейма
         frame = np.concatenate([spectrum_1, spectrum_2, spectrum_3, diff_1, diff_2, diff_3])
 
+        signals_1.append(temp_ch_1)
+        signals_2.append(temp_ch_2)
+        signals_3.append(temp_ch_3)
+        spectr_1.append(spectrum_1)
+        spectr_2.append(spectrum_2)
+        spectr_3.append(spectrum_3)
+        spectrums.append(frame)
+
+        if GlobalParams.show_spectrum == True:
+            GlobalParams.show_spectrum = False
+            print("спектр:")
+            plt.figure(figsize=(15, 6))
+            plt.plot(frame)
+            plt.show()
+
         new_dataset = pd.concat([new_dataset, pd.DataFrame({"data": [frame], "label": [label]})], ignore_index=True)
 
         i = i + frame_size - frame_stride
 
-    return new_dataset
+    return new_dataset, signals_1, signals_2, signals_3, spectr_1, spectr_2, spectr_3, spectrums
 
 
 def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length, frame_coeff):
@@ -81,15 +103,15 @@ def create_smoothed_spectrum(ch_1, ch_2, ch_3, smoothing_window, spectrum_length
         print("Обрезанные спектры:")
         plt.figure(figsize=(15, 6))
         plt.plot(magnitude_spectrum_1, label="спектр 1", color='red')
-        plt.legend()
+        #plt.legend()
         plt.show()
         plt.figure(figsize=(15, 6))
         plt.plot(magnitude_spectrum_2, label="спектр 2", color='green')
-        plt.legend()
+        #plt.legend()
         plt.show()
         plt.figure(figsize=(15, 6))
         plt.plot(magnitude_spectrum_3, label="спектр 3", color='blue')
-        plt.legend()
+        #plt.legend()
         plt.show()
 
     return smoothed_spectrum_1, smoothed_spectrum_2, smoothed_spectrum_3, diff_1, diff_2, diff_3
